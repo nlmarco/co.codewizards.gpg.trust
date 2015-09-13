@@ -1,0 +1,46 @@
+apply plugin: 'java'
+apply plugin: 'eclipse'
+apply plugin: 'maven'
+
+group = 'co.codewizards.gpg'
+version = '1.0.0-SNAPSHOT'
+
+sourceCompatibility = JavaVersion.VERSION_1_7
+targetCompatibility = JavaVersion.VERSION_1_7
+
+jar {
+    manifest {
+        attributes 'Implementation-Title': 'GnuPG Trust Database',
+                   'Implementation-Version': version
+    }
+}
+
+[compileJava, compileTestJava]*.options*.encoding = 'UTF-8'
+
+repositories {
+    mavenLocal()
+    mavenCentral()
+}
+
+project.ext.bouncycastleVersion = '1.50'
+project.ext.slf4jVersion = '1.7.7'
+
+dependencies {
+	compile "org.slf4j:slf4j-api:$slf4jVersion"
+//    compile group: 'commons-collections', name: 'commons-collections', version: '3.2'
+	compile group: 'org.bouncycastle', name: 'bcpg-jdk15on', version: bouncycastleVersion
+    testCompile group: 'junit', name: 'junit', version: '4.+'
+	testCompile 'org.assertj:assertj-core:1.5.0'
+}
+
+test {
+    systemProperties 'property': 'value'
+}
+
+uploadArchives {
+    repositories {
+       flatDir {
+           dirs 'repos'
+       }
+    }
+}
