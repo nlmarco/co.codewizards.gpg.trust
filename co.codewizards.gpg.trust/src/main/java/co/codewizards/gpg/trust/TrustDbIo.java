@@ -124,7 +124,7 @@ public class TrustDbIo implements AutoCloseable, TrustRecordConst {
 
 	public TrustRecord.Trust getTrustByFingerprint(final byte[] fingerprint) throws TrustDbIoException {
 		/* Locate the trust record using the hash table */
-		TrustRecord rec = lookup_hashtable(getTrustHashRec(), fingerprint, new TrustRecordMatcher() {
+		TrustRecord rec = getTrustRecordViaHashTable(getTrustHashRec(), fingerprint, new TrustRecordMatcher() {
 			@Override
 			public boolean matches(final TrustRecord trustRecord) {
 				if (! (trustRecord instanceof TrustRecord.Trust))
@@ -141,7 +141,8 @@ public class TrustDbIo implements AutoCloseable, TrustRecordConst {
 		boolean matches(TrustRecord trustRecord);
 	}
 
-	public TrustRecord lookup_hashtable(long table, byte[] key, TrustRecordMatcher matcher) {
+	// static gpg_error_t lookup_hashtable (ulong table, const byte *key, size_t keylen, int (*cmpfnc)(const void*, const TRUSTREC *), const void *cmpdata, TRUSTREC *rec )
+	public TrustRecord getTrustRecordViaHashTable(long table, byte[] key, TrustRecordMatcher matcher) {
 		long hashrec, item;
 		int msb;
 		int level = 0;

@@ -63,6 +63,22 @@ public class TrustDb implements AutoCloseable, TrustRecordConst {
 		// TODO implement this!
 	}
 
+	/**
+	 * Gets the assigned ownertrust value for the given public key.
+	 * The key should be the primary key.
+	 */
+	public int getOwnerTrust(PGPPublicKey pk)
+	{
+//		if (trustdb_args.no_trustdb && opt.trust_model == TM_ALWAYS)
+//			return TRUST_UNKNOWN; // TODO should we really support this?!
+
+		TrustRecord.Trust trust = getTrustByPublicKey(pk);
+		if (trust == null)
+			return TRUST_UNKNOWN;
+
+		return trust.getOwnerTrust();
+	}
+
 	protected TrustRecord.Trust getTrustByPublicKey(PGPPublicKey pk)
 	{
 		initTrustDb();
@@ -72,30 +88,30 @@ public class TrustDb implements AutoCloseable, TrustRecordConst {
 
 	// TODO omit 'pk', because only mainPk is used.
 	protected int getValidityCore(PGPPublicKey pk, String userId, PGPPublicKey mainPk) {
-//		TrustRecord trec, vrec;
-//		long recordNum;
-//		int validity;
+		//		TrustRecord trec, vrec;
+		//		long recordNum;
+		//		int validity;
 
 		initTrustDb();
 
 		// We do not (yet) support anything else than TM_PGP.
-//		/* If we have no trustdb (which also means it has not been created)
-//	     and the trust-model is always, we don't know the validity -
-//	     return immediately.  If we won't do that the tdbio code would try
-//	     to open the trustdb and run into a fatal error.  */
-//		if (trustdb_args.no_trustdb && opt.trust_model == TM_ALWAYS)
-//			return TRUST_UNKNOWN;
+		//		/* If we have no trustdb (which also means it has not been created)
+		//	     and the trust-model is always, we don't know the validity -
+		//	     return immediately.  If we won't do that the tdbio code would try
+		//	     to open the trustdb and run into a fatal error.  */
+		//		if (trustdb_args.no_trustdb && opt.trust_model == TM_ALWAYS)
+		//			return TRUST_UNKNOWN;
 
 		checkTrustDbStale();
 
 		// We do not (yet) support anything else then TM_PGP.
-//		if(opt.trust_model==TM_DIRECT)
-//		{
-//			/* Note that this happens BEFORE any user ID stuff is checked.
-//		 The direct trust model applies to keys as a whole. */
-//			validity = tdb_get_ownertrust (main_pk);
-//			goto leave;
-//		}
+		//		if(opt.trust_model==TM_DIRECT)
+		//		{
+		//			/* Note that this happens BEFORE any user ID stuff is checked.
+		//		 The direct trust model applies to keys as a whole. */
+		//			validity = tdb_get_ownertrust (main_pk);
+		//			goto leave;
+		//		}
 
 		TrustRecord.Trust trust = getTrustByPublicKey(mainPk);
 		if (trust == null)
@@ -109,15 +125,15 @@ public class TrustDb implements AutoCloseable, TrustRecordConst {
 			assertNotNull("valid", valid);
 
 			if (userId != null) {
-//				// If a user ID is given we return the validity for that
-//				// user ID ONLY.  If the namehash is not found, then there
-//				// is no validity at all (i.e. the user ID wasn't signed).
-//
-//				if(memcmp(vrec.r.valid.namehash,uid->namehash,20)==0)
-//				{
-//					validity=(vrec.r.valid.validity & TRUST_MASK);
-//					break;
-//				}
+				//				// If a user ID is given we return the validity for that
+				//				// user ID ONLY.  If the namehash is not found, then there
+				//				// is no validity at all (i.e. the user ID wasn't signed).
+				//
+				//				if(memcmp(vrec.r.valid.namehash,uid->namehash,20)==0)
+				//				{
+				//					validity=(vrec.r.valid.validity & TRUST_MASK);
+				//					break;
+				//				}
 				throw new UnsupportedOperationException("NYI");
 			}
 			else {
@@ -131,17 +147,17 @@ public class TrustDb implements AutoCloseable, TrustRecordConst {
 		// flag is so important, anyway.
 		if ( (trust.getOwnerTrust() & TRUST_FLAG_DISABLED) != 0 ) {
 			validity |= TRUST_FLAG_DISABLED;
-//			pk->flags.disabled = 1;
+			//			pk->flags.disabled = 1;
 		}
-//		else
-//			pk->flags.disabled = 0;
-//
-//		pk->flags.disabled_valid = 1;
+		//		else
+		//			pk->flags.disabled = 0;
+		//
+		//		pk->flags.disabled_valid = 1;
 
 		// TODO do we need pending_check_trustdb?
-//			leave:
-//				if (pending_check_trustdb)
-//					validity |= TRUST_FLAG_PENDING_CHECK;
+		//			leave:
+		//				if (pending_check_trustdb)
+		//					validity |= TRUST_FLAG_PENDING_CHECK;
 
 		return validity;
 	}
