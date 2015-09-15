@@ -116,6 +116,22 @@ public class TrustDb implements AutoCloseable, TrustRecordConst {
 		return trust.getOwnerTrust();
 	}
 
+	public void setOwnerTrust(PGPPublicKey pk, int ownerTrust) {
+		assertNotNull("pk", pk);
+		assertNonNegativeShort("ownerTrust", ownerTrust);
+		// TODO we should probably test the ownerTrust a bit more thoroughly to prevent illegal data!
+
+		TrustRecord.Trust trust = getTrustByPublicKey(pk);
+		if (trust == null) {
+			// No record yet - create a new one.
+			trust = new TrustRecord.Trust();
+			trust.setFingerprint(pk.getFingerprint());
+		}
+		trust.setOwnerTrust((short) ownerTrust);
+		trustDbIo.putTrustRecord(trust);
+		trustDbIo.flush();
+	}
+
 	protected TrustRecord.Trust getTrustByPublicKey(PGPPublicKey pk)
 	{
 		initTrustDb();
