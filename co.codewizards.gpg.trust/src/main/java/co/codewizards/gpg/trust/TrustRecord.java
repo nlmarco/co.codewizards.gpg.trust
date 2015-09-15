@@ -5,7 +5,7 @@ import java.util.Date;
 
 public abstract class TrustRecord implements TrustRecordConst {
 
-	protected long recordNum;
+	protected long recordNum = -1;
 
 	public static class Unused extends TrustRecord {
 		@Override
@@ -95,6 +95,9 @@ public abstract class TrustRecord implements TrustRecordConst {
 		public long getFirstFree() {
 			return firstFree;
 		}
+		public void setFirstFree(long firstFree) {
+			this.firstFree = firstFree;
+		}
 
 		public long getReserved3() {
 			return reserved3;
@@ -127,6 +130,16 @@ public abstract class TrustRecord implements TrustRecordConst {
 	public static class Free extends TrustRecord {
 		protected long next;
 
+		public long getNext() {
+			return next;
+		}
+		public void setNext(long next) {
+			if (next < 0)
+				throw new IllegalArgumentException("next < 0");
+
+			this.next = next;
+		}
+
 		@Override
 		public TrustRecordType getType() {
 			return TrustRecordType.FREE;
@@ -144,6 +157,12 @@ public abstract class TrustRecord implements TrustRecordConst {
 
 		public long getItem(int index) {
 			return item[index];
+		}
+		public void setItem(int index, long value) {
+			if (value < 0)
+				throw new IllegalArgumentException("value < 0");
+
+			item[index] = value;
 		}
 
 		@Override
@@ -178,9 +197,21 @@ public abstract class TrustRecord implements TrustRecordConst {
 		public long getRNum(int index) {
 			return rnum[index];
 		}
+		public void setRnum(int index, long value) {
+			if (value < 0)
+				throw new IllegalArgumentException("value < 0");
+
+			rnum[index] = value;
+		}
 
 		public long getNext() {
 			return next;
+		}
+		public void setNext(long next) {
+			if (next < 0)
+				throw new IllegalArgumentException("next < 0");
+
+			this.next = next;
 		}
 
 //		@Override
@@ -213,23 +244,40 @@ public abstract class TrustRecord implements TrustRecordConst {
 		public byte[] getFingerprint() {
 			return fingerprint;
 		}
+		public void setFingerprint(byte[] fingerprint) {
+			this.fingerprint = fingerprint;
+		}
 
 		public short getOwnerTrust() {
 			return ownerTrust;
+		}
+		public void setOwnerTrust(short ownerTrust) {
+			this.ownerTrust = ownerTrust;
 		}
 
 		public short getDepth() {
 			return depth;
 		}
+		public void setDepth(short depth) {
+			if (depth < 0)
+				throw new IllegalArgumentException("depth < 0");
+
+			this.depth = depth;
+		}
 
 		public long getValidList() {
 			return validList;
+		}
+		public void setValidList(long validList) {
+			if (validList < 0)
+				throw new IllegalArgumentException("validList < 0");
+
+			this.validList = validList;
 		}
 
 		public short getMinOwnerTrust() {
 			return minOwnerTrust;
 		}
-
 		public void setMinOwnerTrust(short minOwnerTrust) {
 			this.minOwnerTrust = minOwnerTrust;
 		}
@@ -265,9 +313,18 @@ public abstract class TrustRecord implements TrustRecordConst {
 		public byte[] getNameHash() {
 			return nameHash;
 		}
+		public void setNameHash(byte[] nameHash) {
+			this.nameHash = nameHash;
+		}
 
 		public long getNext() {
 			return next;
+		}
+		public void setNext(long next) {
+			if (next < 0)
+				throw new IllegalArgumentException("next < 0");
+
+			this.next = next;
 		}
 
 		public short getValidity() {
@@ -312,6 +369,10 @@ public abstract class TrustRecord implements TrustRecordConst {
 
 	public long getRecordNum() {
 		return recordNum;
+	}
+
+	protected void setRecordNum(long recordNum) {
+		this.recordNum = recordNum;
 	}
 
 	public abstract TrustRecordType getType();

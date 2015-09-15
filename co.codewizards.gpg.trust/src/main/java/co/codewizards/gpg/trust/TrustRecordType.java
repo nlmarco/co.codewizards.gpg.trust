@@ -1,6 +1,6 @@
 package co.codewizards.gpg.trust;
 
-import static co.codewizards.gpg.trust.AssertUtil.*;
+import static co.codewizards.gpg.trust.Util.*;
 
 import java.util.Collections;
 import java.util.HashMap;
