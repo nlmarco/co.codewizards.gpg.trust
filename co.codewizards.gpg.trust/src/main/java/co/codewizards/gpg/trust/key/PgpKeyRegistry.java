@@ -81,6 +81,10 @@ public class PgpKeyRegistry {
 		return pgpKey;
 	}
 
+	public void markStale() {
+		pubringFileLastModified = 0;
+		secringFileLastModified = 0;
+	}
 
 	public synchronized PgpKey getPgpKey(final PgpKeyFingerprint pgpKeyFingerprint) {
 		assertNotNull("pgpKeyFingerprint", pgpKeyFingerprint);

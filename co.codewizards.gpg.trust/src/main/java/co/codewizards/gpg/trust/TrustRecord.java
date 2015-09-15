@@ -3,7 +3,7 @@ package co.codewizards.gpg.trust;
 import java.util.Arrays;
 import java.util.Date;
 
-public abstract class TrustRecord implements TrustRecordConst {
+public abstract class TrustRecord implements TrustConst {
 
 	protected long recordNum = -1;
 
@@ -36,6 +36,9 @@ public abstract class TrustRecord implements TrustRecordConst {
 
 		public short getVersion() {
 			return version;
+		}
+		public void setVersion(short version) {
+			this.version = version;
 		}
 
 		public short getMarginals() {
@@ -82,6 +85,9 @@ public abstract class TrustRecord implements TrustRecordConst {
 
 		public Date getNextCheck() {
 			return nextCheck;
+		}
+		public void setNextCheck(Date nextCheck) {
+			this.nextCheck = nextCheck;
 		}
 
 		public long getReserved() {

@@ -1,6 +1,6 @@
 package co.codewizards.gpg.trust;
 
-public class Config implements TrustRecordConst {
+public class Config implements TrustConst {
 
 	public static final int TM_CLASSIC = 0;
 	public static final int TM_PGP = 1;

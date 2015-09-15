@@ -25,7 +25,7 @@ import co.codewizards.gpg.trust.key.PgpKeyRegistry;
 import co.codewizards.gpg.trust.key.PgpUserId;
 import co.codewizards.gpg.trust.key.UserIdNameHash;
 
-public class TrustDb implements AutoCloseable, TrustRecordConst {
+public class TrustDb implements AutoCloseable, TrustConst {
 	private static final Logger logger = LoggerFactory.getLogger(TrustDb.class);
 
 	private final TrustDbIo trustDbIo;

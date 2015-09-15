@@ -1,6 +1,6 @@
 package co.codewizards.gpg.trust;
 
-public interface TrustRecordConst {
+public interface TrustConst {
 	int TRUST_RECORD_LEN = 40;
 	int SIGS_PER_RECORD = (TRUST_RECORD_LEN - 10) / 5;
 	int ITEMS_PER_HTBL_RECORD = (TRUST_RECORD_LEN - 2) / 4;

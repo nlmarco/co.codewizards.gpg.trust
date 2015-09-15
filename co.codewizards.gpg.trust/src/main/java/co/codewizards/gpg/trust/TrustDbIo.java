@@ -21,7 +21,7 @@ import org.slf4j.LoggerFactory;
 
 import co.codewizards.gpg.trust.TrustRecord.HashLst;
 
-public class TrustDbIo implements AutoCloseable, TrustRecordConst {
+public class TrustDbIo implements AutoCloseable, TrustConst {
 	private static final Logger logger = LoggerFactory.getLogger(TrustDbIo.class);
 
 	private final SortedMap<Long, TrustRecord> dirtyRecordNum2TrustRecord = new TreeMap<>();
@@ -41,7 +41,27 @@ public class TrustDbIo implements AutoCloseable, TrustRecordConst {
 		} catch (IOException x) {
 			throw new TrustDbIoException(x);
 		}
-		getTrustRecord(0, TrustRecord.Version.class); // read the version immediately when opening the file
+
+		if (getTrustRecord(0, TrustRecord.Version.class) == null)
+			createVersionRecord();
+	}
+
+	private void createVersionRecord() throws TrustDbIoException {
+		final Config config = Config.getInstance();
+
+		TrustRecord.Version version = new TrustRecord.Version();
+		version.setVersion((short) 3);
+		version.setCreated(new Date());
+		version.setNextCheck(new Date()); // we should check it as soon as possible
+		version.setMarginals(config.getMarginalsNeeded());
+		version.setCompletes(config.getCompletesNeeded());
+		version.setCertDepth(config.getMaxCertDepth());
+		version.setTrustModel(config.getTrustModel()); // TODO maybe support other trust-models, too - currently only PGP is supported!
+		version.setMinCertLevel(config.getMinCertLevel());
+
+		version.setRecordNum(0);
+		putTrustRecord(version);
+		flush();
 	}
 
 	public synchronized void updateVersionRecord() throws TrustDbIoException {
@@ -492,6 +512,7 @@ public class TrustDbIo implements AutoCloseable, TrustRecordConst {
 			if (item == 0) { // Insert a new item into the hash table.
 				hashTable.setItem(msb % ITEMS_PER_HTBL_RECORD, recordNum);
 				putTrustRecord(hashTable);
+				return;
 			}
 			else if (item == recordNum) { // perfect match ;-)
 				return;
