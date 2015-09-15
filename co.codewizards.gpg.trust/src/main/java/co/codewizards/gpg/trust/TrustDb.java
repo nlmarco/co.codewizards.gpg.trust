@@ -35,8 +35,6 @@ public class TrustDb implements AutoCloseable, TrustRecordConst {
 	private long nextExpire;
 	private Map<PgpKeyFingerprint, PgpKeyTrust> fingerprint2PgpKeyTrust;
 	private Set<PgpKeyFingerprint> klist;
-//	private Set<PgpKeyFingerprint> stored;
-//	private Set<PgpKeyFingerprint> used;
 	private Set<PgpKeyFingerprint> fullTrust;
 
 	public TrustDb(final File file, final PgpKeyRegistry pgpKeyRegistry) {
@@ -944,8 +942,6 @@ public class TrustDb implements AutoCloseable, TrustRecordConst {
 		final Config config = Config.getInstance();
 		try {
 			fingerprint2PgpKeyTrust = new HashMap<>();
-//			stored = new HashSet<>();
-//			used = new HashSet<>();
 			fullTrust = new HashSet<>();
 
 			startTime = System.currentTimeMillis() / 1000;
@@ -967,8 +963,6 @@ public class TrustDb implements AutoCloseable, TrustRecordConst {
 					continue;
 				}
 
-//				used.add(utkFpr);
-//				stored.add(utkFpr);
 				fullTrust.add(utkFpr);
 
 				for (PgpUserId pgpUserId : utk.getPgpUserIds())
@@ -1008,8 +1002,6 @@ public class TrustDb implements AutoCloseable, TrustRecordConst {
 		} finally {
 			fingerprint2PgpKeyTrust = null;
 			klist = null;
-//			stored = null;
-//			used = null;
 			fullTrust = null;
 		}
 	}

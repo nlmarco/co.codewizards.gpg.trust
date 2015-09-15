@@ -17,8 +17,6 @@ public class PgpKeyTrust {
 	private final PgpKey pgpKey;
 	private final Map<UserIdNameHash, PgpUserIdTrust> nameHash2UserIdTrust = new HashMap<>();
 
-	private int trustValue;
-
 	public PgpKeyTrust(final PgpKey pgpKey) {
 		this.pgpKey = assertNotNull("pgpKey", pgpKey);
 	}
@@ -29,14 +27,6 @@ public class PgpKeyTrust {
 
 	public PgpKeyFingerprint getPgpKeyFingerprint() {
 		return pgpKey.getPgpKeyFingerprint();
-	}
-
-	public int getTrustValue() {
-		return trustValue;
-	}
-
-	public void setTrustValue(int trustValue) {
-		this.trustValue = trustValue;
 	}
 
 	public PgpUserIdTrust getPgpUserIdTrust(final PgpUserId pgpUserId) {
