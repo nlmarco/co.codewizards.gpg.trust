@@ -52,9 +52,9 @@ public class TrustDbIo implements AutoCloseable, TrustConst {
 		TrustRecord.Version version = new TrustRecord.Version();
 		version.setVersion((short) 3);
 		version.setCreated(new Date());
-		version.setNextCheck(new Date()); // we should check it as soon as possible
-		version.setMarginals(config.getMarginalsNeeded());
-		version.setCompletes(config.getCompletesNeeded());
+		version.setNextCheck(version.getCreated()); // we should check it as soon as possible
+		version.setMarginalsNeeded(config.getMarginalsNeeded());
+		version.setCompletesNeeded(config.getCompletesNeeded());
 		version.setCertDepth(config.getMaxCertDepth());
 		version.setTrustModel(config.getTrustModel()); // TODO maybe support other trust-models, too - currently only PGP is supported!
 		version.setMinCertLevel(config.getMinCertLevel());
@@ -64,15 +64,18 @@ public class TrustDbIo implements AutoCloseable, TrustConst {
 		flush();
 	}
 
-	public synchronized void updateVersionRecord() throws TrustDbIoException {
+	public synchronized void updateVersionRecord(final Date nextCheck) throws TrustDbIoException {
+		assertNotNull("nextCheck", nextCheck);
+
 		TrustRecord.Version version = getTrustRecord(0, TrustRecord.Version.class);
 		assertNotNull("version", version);
 
 		Config config = Config.getInstance();
 
 		version.setCreated(new Date());
-		version.setMarginals(config.getMarginalsNeeded());
-		version.setCompletes(config.getCompletesNeeded());
+		version.setNextCheck(nextCheck);
+		version.setMarginalsNeeded(config.getMarginalsNeeded());
+		version.setCompletesNeeded(config.getCompletesNeeded());
 		version.setCertDepth(config.getMaxCertDepth());
 		version.setTrustModel(config.getTrustModel());
 		version.setMinCertLevel(config.getMinCertLevel());
@@ -229,7 +232,9 @@ public class TrustDbIo implements AutoCloseable, TrustConst {
 			msb = key[level] & 0xff;
 			hashrec += msb / ITEMS_PER_HTBL_RECORD;
 			TrustRecord.HashTbl hashTable = getTrustRecord(hashrec, TrustRecord.HashTbl.class);
-			assertNotNull("hashTable", hashTable);
+			//assertNotNull("hashTable", hashTable);
+			if (hashTable == null)
+				return null; // not found!
 
 			item = hashTable.getItem(msb % ITEMS_PER_HTBL_RECORD);
 			if (item == 0)
@@ -317,8 +322,8 @@ public class TrustDbIo implements AutoCloseable, TrustConst {
 					throw new TrustDbIoException(String.format("Not a trustdb file: %s", file.getAbsolutePath()));
 
 				version.version  = (short) (buf[bufIdx++] & 0xFF);
-				version.marginals = (short) (buf[bufIdx++] & 0xFF);
-				version.completes = (short) (buf[bufIdx++] & 0xFF);
+				version.marginalsNeeded = (short) (buf[bufIdx++] & 0xFF);
+				version.completesNeeded = (short) (buf[bufIdx++] & 0xFF);
 				version.certDepth = (short) (buf[bufIdx++] & 0xFF);
 				version.trustModel = (short) (buf[bufIdx++] & 0xFF);
 				version.minCertLevel = (short) (buf[bufIdx++] & 0xFF);
@@ -422,8 +427,8 @@ public class TrustDbIo implements AutoCloseable, TrustConst {
 				buf[bufIdx++] = 'g';
 
 				buf[bufIdx++] = (byte) version.version;
-				buf[bufIdx++] = (byte) version.marginals;
-				buf[bufIdx++] = (byte) version.completes;
+				buf[bufIdx++] = (byte) version.marginalsNeeded;
+				buf[bufIdx++] = (byte) version.completesNeeded;
 				buf[bufIdx++] = (byte) version.certDepth;
 				buf[bufIdx++] = (byte) version.trustModel;
 				buf[bufIdx++] = (byte) version.minCertLevel;

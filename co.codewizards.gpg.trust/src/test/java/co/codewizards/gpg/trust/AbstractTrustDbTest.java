@@ -59,8 +59,17 @@ import co.codewizards.gpg.trust.key.PgpUserId;
 public abstract class AbstractTrustDbTest {
 	private static final Logger logger = LoggerFactory.getLogger(AbstractTrustDbTest.class);
 
+	/**
+	 * Skip cleaning up after a test run. This is useful to analyse the situation manually, after a test
+	 * was run.
+	 */
 	protected static final boolean SKIP_CLEANUP = Boolean.parseBoolean(System.getProperty("SKIP_CLEANUP"));
-	protected static final boolean SKIP_GPG_CHECK_TRUST_DB = true;
+
+	/**
+	 * Skip additionally running 'gpg --check-trustdb --homedir ${tempGnuPgDir}' and comparing its results with
+	 * the results of the Java code.
+	 */
+	protected static final boolean SKIP_GPG_CHECK_TRUST_DB = Boolean.parseBoolean(System.getProperty("SKIP_GPG_CHECK_TRUST_DB"));
 
 	private final long validitySeconds = 365L * 24L * 3600L;
 	protected final SecureRandom secureRandom = new SecureRandom();
@@ -183,13 +192,12 @@ public abstract class AbstractTrustDbTest {
 		}
 	}
 
-	public PgpKey signPublicKey(PgpKey signingKey, char[] passphrase, PgpKey signedKey) throws IOException, PGPException {
+	public PgpKey signPublicKey(PgpKey signingKey, int certificationType, PgpKey signedKey) throws IOException, PGPException {
 		assertNotNull("signingKey", signingKey);
 		assertNotNull("signedKey", signedKey);
 
 		// null causes an exception - empty is possible, though
-		if (passphrase == null)
-			passphrase = new char[0];
+		final char[] passphrase = new char[0];
 
 		if (signingKey.getMasterKey() != null)
 			signingKey = signingKey.getMasterKey(); // TODO should we maybe search for a separate signing-key?
@@ -206,7 +214,7 @@ public abstract class AbstractTrustDbTest {
 		final BcPGPContentSignerBuilder signerBuilder = new BcPGPContentSignerBuilder(masterKeyAlgorithm, HashAlgorithmTags.SHA512);
 		final PGPSignatureGenerator sGen = new PGPSignatureGenerator(signerBuilder);
 
-		sGen.init(PGPSignature.POSITIVE_CERTIFICATION, privateKey);
+		sGen.init(certificationType, privateKey);
 
 		final PGPSignatureSubpacketGenerator subpckGen = new PGPSignatureSubpacketGenerator();
 
@@ -248,12 +256,11 @@ public abstract class AbstractTrustDbTest {
 		return pgpKeyRegistry.getPgpKeyOrFail(signedKey.getPgpKeyId());
 	}
 
-	public PgpKey createPgpKey(final String userId, char[] passphrase) throws NoSuchAlgorithmException, IOException, PGPException {
+	public PgpKey createPgpKey(final String userId) throws NoSuchAlgorithmException, IOException, PGPException {
 		assertNotNull("userId", userId);
 
 		// null causes an exception - empty is possible, though
-		if (passphrase == null)
-			passphrase = new char[0];
+		char[] passphrase = new char[0];
 
 		final Pair<PGPPublicKeyRing, PGPSecretKeyRing> pair = createPGPSecretKeyRing(userId, passphrase);
 		final PGPPublicKeyRing publicKeyRing = pair.a;

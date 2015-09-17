@@ -16,8 +16,8 @@ public abstract class TrustRecord implements TrustConst {
 
 	public static class Version extends TrustRecord {
 		protected short version;   // should be 3
-		protected short marginals;
-		protected short completes;
+		protected short marginalsNeeded;
+		protected short completesNeeded;
 		protected short certDepth;
 		protected short trustModel;
 		protected short minCertLevel;
@@ -41,18 +41,18 @@ public abstract class TrustRecord implements TrustConst {
 			this.version = version;
 		}
 
-		public short getMarginals() {
-			return marginals;
+		public short getMarginalsNeeded() {
+			return marginalsNeeded;
 		}
-		public void setMarginals(short marginals) {
-			this.marginals = marginals;
+		public void setMarginalsNeeded(short marginals) {
+			this.marginalsNeeded = marginals;
 		}
 
-		public short getCompletes() {
-			return completes;
+		public short getCompletesNeeded() {
+			return completesNeeded;
 		}
-		public void setCompletes(short completes) {
-			this.completes = completes;
+		public void setCompletesNeeded(short completes) {
+			this.completesNeeded = completes;
 		}
 
 		public short getCertDepth() {
@@ -126,9 +126,9 @@ public abstract class TrustRecord implements TrustConst {
 
 		@Override
 		public String toString() {
-			return String.format("%s[recordNum=%d version=%d marginals=%d completes=%d certDepth=%d trustModel=%d minCertLevel=%d created=%s nextCheck=%s reserved=%d reserved2=%d firstFree=%d reserved3=%d trustHashTbl=%d]",
-					getClass().getSimpleName(), recordNum, version, marginals,
-					completes, certDepth, trustModel, minCertLevel,
+			return String.format("%s[recordNum=%d version=%d marginalsNeeded=%d completesNeeded=%d certDepth=%d trustModel=%d minCertLevel=%d created=%s nextCheck=%s reserved=%d reserved2=%d firstFree=%d reserved3=%d trustHashTbl=%d]",
+					getClass().getSimpleName(), recordNum, version, marginalsNeeded,
+					completesNeeded, certDepth, trustModel, minCertLevel,
 					created, nextCheck, reserved, reserved2, firstFree, reserved3, trustHashTbl);
 		}
 	}
@@ -404,8 +404,8 @@ public abstract class TrustRecord implements TrustConst {
 	//		union {
 	//			struct {	     /* version record: */
 	//				byte  version;   /* should be 3 */
-	//				byte  marginals;
-	//				byte  completes;
+	//				byte  marginalsNeeded;
+	//				byte  completesNeeded;
 	//				byte  cert_depth;
 	//				byte  trust_model;
 	//				byte  min_cert_level;

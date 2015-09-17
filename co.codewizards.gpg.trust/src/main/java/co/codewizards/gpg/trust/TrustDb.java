@@ -3,6 +3,8 @@ package co.codewizards.gpg.trust;
 import static co.codewizards.gpg.trust.Util.*;
 
 import java.io.File;
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
@@ -36,6 +38,8 @@ public class TrustDb implements AutoCloseable, TrustConst {
 	private Map<PgpKeyFingerprint, PgpKeyTrust> fingerprint2PgpKeyTrust;
 	private Set<PgpKeyFingerprint> klist;
 	private Set<PgpKeyFingerprint> fullTrust;
+	private DateFormat dateFormatIso8601;
+	private DateFormat dateFormatIso8601WithTime;
 
 	public TrustDb(final File file, final PgpKeyRegistry pgpKeyRegistry) {
 		assertNotNull("file", file);
@@ -46,6 +50,20 @@ public class TrustDb implements AutoCloseable, TrustConst {
 	@Override
 	public void close() throws Exception {
 		trustDbIo.close();
+	}
+
+	public DateFormat getDateFormatIso8601() {
+		if (dateFormatIso8601 == null)
+			dateFormatIso8601 = new SimpleDateFormat("yyyy-MM-dd");
+
+		return dateFormatIso8601;
+	}
+
+	public DateFormat getDateFormatIso8601WithTime() {
+		if (dateFormatIso8601WithTime == null)
+			dateFormatIso8601WithTime = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss");
+
+		return dateFormatIso8601WithTime;
 	}
 
 	protected PgpKeyTrust getPgpKeyTrust(final PgpKey pgpKey) {
@@ -90,14 +108,6 @@ public class TrustDb implements AutoCloseable, TrustConst {
 		logger.debug("resetTrustRecords: {} keys processed ({} validity counts cleared)", count, nreset);
 	}
 
-	protected void initTrustDb() {
-		// TODO implement this!
-	}
-
-	protected void checkTrustDbStale() {
-		// TODO implement this!
-	}
-
 	/**
 	 * Gets the assigned ownertrust value for the given public key.
 	 * The key should be the primary key.
@@ -127,12 +137,13 @@ public class TrustDb implements AutoCloseable, TrustConst {
 		}
 		trust.setOwnerTrust((short) ownerTrust);
 		trustDbIo.putTrustRecord(trust);
+
+		markTrustDbStale();
 		trustDbIo.flush();
 	}
 
 	protected TrustRecord.Trust getTrustByPublicKey(PGPPublicKey pk)
 	{
-		initTrustDb();
 		TrustRecord.Trust trust = trustDbIo.getTrustByPublicKey(pk);
 		return trust;
 	}
@@ -182,10 +193,8 @@ public class TrustDb implements AutoCloseable, TrustConst {
 		if ( (trust.getOwnerTrust() & TRUST_FLAG_DISABLED) != 0 )
 			validity |= TRUST_FLAG_DISABLED;
 
-		// TODO do we need pending_check_trustdb?
-		//			leave:
-		//				if (pending_check_trustdb)
-		//					validity |= TRUST_FLAG_PENDING_CHECK;
+		if (isTrustDbStale())
+			validity |= TRUST_FLAG_PENDING_CHECK;
 
 		return validity;
 	}
@@ -938,6 +947,78 @@ public class TrustDb implements AutoCloseable, TrustConst {
 //		}
 //	}
 
+	public synchronized boolean isTrustDbStale() {
+		final Config config = Config.getInstance();
+		final TrustRecord.Version version = trustDbIo.getTrustRecord(0, TrustRecord.Version.class);
+		assertNotNull("version", version);
+
+		if (config.getTrustModel() != version.getTrustModel()) {
+			TrustModel configTrustModel;
+			try {
+				configTrustModel = TrustModel.fromNumericId(config.getTrustModel());
+			} catch (IllegalArgumentException x) {
+				configTrustModel = null;
+			}
+
+			TrustModel versionTrustModel;
+			try {
+				versionTrustModel = TrustModel.fromNumericId(version.getTrustModel());
+			} catch (IllegalArgumentException x) {
+				versionTrustModel = null;
+			}
+
+			logger.debug("isTrustDbStale: stale=true config.trustModel={} ({}) trustDb.trustModel={} ({})",
+					config.getTrustModel(), configTrustModel, version.getTrustModel(), versionTrustModel);
+
+			return true;
+		}
+
+		if (config.getCompletesNeeded() != version.getCompletesNeeded()) {
+			logger.debug("isTrustDbStale: stale=true config.completesNeeded={} trustDb.completesNeeded={}",
+					config.getCompletesNeeded(), version.getCompletesNeeded());
+
+			return true;
+		}
+
+		if (config.getMarginalsNeeded() != version.getMarginalsNeeded()) {
+			logger.debug("isTrustDbStale: stale=true config.marginalsNeeded={} trustDb.marginalsNeeded={}",
+					config.getMarginalsNeeded(), version.getMarginalsNeeded());
+
+			return true;
+		}
+
+		if (config.getMaxCertDepth() != version.getCertDepth()) {
+			logger.debug("isTrustDbStale: stale=true config.maxCertDepth={} trustDb.maxCertDepth={}",
+					config.getMaxCertDepth(), version.getCertDepth());
+
+			return true;
+		}
+
+		final Date now = new Date();
+		if (version.getNextCheck().before(now)) {
+			logger.debug("isTrustDbStale: stale=true nextCheck={} now={}",
+					getDateFormatIso8601WithTime().format(version.getNextCheck()),
+					getDateFormatIso8601WithTime().format(now));
+
+			return true;
+		}
+
+		logger.trace("isTrustDbStale: stale=false");
+		return false;
+	}
+
+	protected synchronized void markTrustDbStale() {
+		final TrustRecord.Version version = trustDbIo.getTrustRecord(0, TrustRecord.Version.class);
+		assertNotNull("version", version);
+		version.setNextCheck(new Date(0));
+		trustDbIo.putTrustRecord(version);
+	}
+
+	public synchronized void updateTrustDbIfNeeded() {
+		if (isTrustDbStale())
+			updateTrustDb();
+	}
+
 	public synchronized void updateTrustDb() {
 		final Config config = Config.getInstance();
 		try {
@@ -945,7 +1026,7 @@ public class TrustDb implements AutoCloseable, TrustConst {
 			fullTrust = new HashSet<>();
 
 			startTime = System.currentTimeMillis() / 1000;
-			nextExpire = 0xffffffff; /* set next expire to the year 2106 */
+			nextExpire = Long.MAX_VALUE;
 
 			resetTrustRecords();
 
@@ -968,13 +1049,9 @@ public class TrustDb implements AutoCloseable, TrustConst {
 				for (PgpUserId pgpUserId : utk.getPgpUserIds())
 					updateValidity(pgpUserId, 0, TRUST_ULTIMATE, 0, 0);
 
-				if (utk.getPublicKey().getValidSeconds() != 0) {
-					long expiredate = (utk.getPublicKey().getCreationTime().getTime() / 1000)
-							+ utk.getPublicKey().getValidSeconds();
-
-					if (expiredate >= startTime && expiredate < nextExpire)
-						nextExpire = expiredate;
-				}
+				final long expireDate = getExpireTimestamp(utk.getPublicKey());
+				if (expireDate >= startTime && expireDate < nextExpire)
+					nextExpire = expireDate;
 			}
 
 			klist = ultimatelyTrustedKeyFingerprints;
@@ -989,14 +1066,22 @@ public class TrustDb implements AutoCloseable, TrustConst {
 
 					for (final PgpUserIdTrust pgpUserIdTrust : pgpKeyTrust.getPgpUserIdTrusts()) {
 						final PgpUserId pgpUserId = pgpUserIdTrust.getPgpUserId();
-						updateValidity(pgpUserId, depth, pgpUserIdTrust.getValidity(),
+
+						final int validity = pgpUserIdTrust.getValidity();
+						updateValidity(pgpUserId, depth, validity,
 								pgpUserIdTrust.getFullCount(), pgpUserIdTrust.getMarginalCount());
 
-						if (pgpUserIdTrust.getValidity() >= TRUST_FULLY)
+						if (validity >= TRUST_FULLY)
 							fullTrust.add(pgpUserIdTrust.getPgpUserId().getPgpKey().getPgpKeyFingerprint());
 					}
+
+					final long expireDate = getExpireTimestamp(pgpKey.getPublicKey());
+					if (expireDate >= startTime && expireDate < nextExpire)
+						nextExpire = expireDate;
 				}
 			}
+
+			trustDbIo.updateVersionRecord(new Date(nextExpire * 1000));
 
 			trustDbIo.flush();
 		} finally {
@@ -1004,6 +1089,15 @@ public class TrustDb implements AutoCloseable, TrustConst {
 			klist = null;
 			fullTrust = null;
 		}
+	}
+
+	private long getExpireTimestamp(PGPPublicKey pk) {
+		final long validSeconds = pk.getValidSeconds();
+		if (validSeconds == 0)
+			return Long.MAX_VALUE;
+
+		final long result = (pk.getCreationTime().getTime() / 1000) + validSeconds;
+		return result;
 	}
 
 	private List<PgpKey> validateKeyList() {
@@ -1030,12 +1124,13 @@ public class TrustDb implements AutoCloseable, TrustConst {
 		assertNotNull("pgpKey", pgpKey);
 		logger.debug("validateKey: {}", pgpKey);
 
+		final Config config = Config.getInstance();
 		final PgpKeyTrust pgpKeyTrust = getPgpKeyTrust(pgpKey);
 
 		for (final PgpUserId pgpUserId : pgpKey.getPgpUserIds()) {
 			final PgpUserIdTrust pgpUserIdTrust = pgpKeyTrust.getPgpUserIdTrust(pgpUserId);
 
-			pgpUserIdTrust.setValidity(TRUST_UNKNOWN); // TRUST_UNKNOWN = 0
+			pgpUserIdTrust.setValidity(0); // TRUST_UNKNOWN = 0
 			pgpUserIdTrust.setUltimateCount(0);
 			pgpUserIdTrust.setFullCount(0);
 			pgpUserIdTrust.setMarginalCount(0);
@@ -1053,34 +1148,44 @@ public class TrustDb implements AutoCloseable, TrustConst {
 				if (signingKey == null)
 					continue;
 
-				final int signingValidity = getValidity(signingKey.getPublicKey());
-				if (signingValidity < TRUST_MARGINAL) {
-					// If the signingKey is not trusted at least marginally, we ignore the certification completely.
+				final int signingOwnerTrust = getOwnerTrust(signingKey.getPublicKey());
+				if (signingKey.getPgpKeyId().equals(pgpKey.getPgpKeyId())
+						&& signingOwnerTrust != TRUST_ULTIMATE) {
+					// It's *not* our own key [*not* TRUST_ULTIMATE] - hence we ignore the self-signature.
 					continue;
 				}
 
-				final int signingOwnerTrust = getOwnerTrust(signingKey.getPublicKey());
-				int validity = Math.min(signingOwnerTrust, signingValidity);
-				validity = Math.min(validity, TRUST_FULLY);
+				int signingValidity = getValidity(signingKey.getPublicKey());
+				if (signingValidity <= TRUST_MARGINAL) {
+					// If the signingKey is trusted only marginally or less, we ignore the certification completely.
+					// Only fully trusted keys are taken into account for transitive trust.
+					continue;
+				}
 
 				// The owner-trust of the signing key is relevant.
 				switch (signingOwnerTrust) {
 					case TRUST_ULTIMATE:
-						pgpUserIdTrust.setValidity(Math.max(validity, pgpUserIdTrust.getValidity()));
 						pgpUserIdTrust.incUltimateCount();
 						break;
 					case TRUST_FULLY:
-						pgpUserIdTrust.setValidity(Math.max(validity, pgpUserIdTrust.getValidity()));
 						pgpUserIdTrust.incFullCount();
 						break;
 					case TRUST_MARGINAL:
-						pgpUserIdTrust.setValidity(Math.max(validity, pgpUserIdTrust.getValidity()));
 						pgpUserIdTrust.incMarginalCount();
 						break;
 					default: // ignoring!
 						break;
 				}
 			}
+
+			if (pgpUserIdTrust.getUltimateCount() >= 1)
+				pgpUserIdTrust.setValidity(TRUST_FULLY);
+			else if (pgpUserIdTrust.getFullCount() >= config.getCompletesNeeded())
+				pgpUserIdTrust.setValidity(TRUST_FULLY);
+			else if (pgpUserIdTrust.getFullCount() + pgpUserIdTrust.getMarginalCount() >= config.getMarginalsNeeded())
+				pgpUserIdTrust.setValidity(TRUST_FULLY);
+			else if (pgpUserIdTrust.getFullCount() >= 1 || pgpUserIdTrust.getMarginalCount() >= 1)
+				pgpUserIdTrust.setValidity(TRUST_MARGINAL);
 		}
 	}
 }

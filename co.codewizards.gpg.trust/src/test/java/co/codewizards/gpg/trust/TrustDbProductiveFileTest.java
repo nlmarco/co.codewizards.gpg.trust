@@ -6,11 +6,13 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.junit.Ignore;
 import org.junit.Test;
 
 import co.codewizards.gpg.trust.TrustRecord.Trust;
 import co.codewizards.gpg.trust.key.PgpKeyRegistry;
 
+@Ignore("This test is for playing around while developing - it's not a regular test!")
 public class TrustDbProductiveFileTest {
 
 	@Test

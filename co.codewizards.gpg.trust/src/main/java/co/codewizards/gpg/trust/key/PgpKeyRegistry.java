@@ -12,6 +12,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.IdentityHashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -312,19 +313,25 @@ public class PgpKeyRegistry {
 		assertNotNull("pgpUserId", pgpUserId);
 		final PGPPublicKey publicKey = pgpUserId.getPgpKey().getPublicKey();
 
+		final IdentityHashMap<PGPSignature, PGPSignature> pgpSignatures = new IdentityHashMap<>();
+
 		final List<PGPSignature> result = new ArrayList<>();
 		if (pgpUserId.getUserId() != null) {
 			for (final Iterator<?> it = nullToEmpty(publicKey.getSignaturesForID(pgpUserId.getUserId())); it.hasNext(); ) {
 				final PGPSignature pgpSignature = (PGPSignature) it.next();
-				if (isCertification(pgpSignature))
+				if (!pgpSignatures.containsKey(pgpSignature) && isCertification(pgpSignature)) {
+					pgpSignatures.put(pgpSignature, pgpSignature);
 					result.add(pgpSignature);
+				}
 			}
 		}
 		else if (pgpUserId.getUserAttribute() != null) {
 			for (final Iterator<?> it = nullToEmpty(publicKey.getSignaturesForUserAttribute(pgpUserId.getUserAttribute())); it.hasNext(); ) {
 				final PGPSignature pgpSignature = (PGPSignature) it.next();
-				if (isCertification(pgpSignature))
+				if (!pgpSignatures.containsKey(pgpSignature) && isCertification(pgpSignature)) {
+					pgpSignatures.put(pgpSignature, pgpSignature);
 					result.add(pgpSignature);
+				}
 			}
 		}
 		else
@@ -335,8 +342,10 @@ public class PgpKeyRegistry {
 		// the ones for the entire key (below).
 		for (Iterator<?> it = nullToEmpty(publicKey.getSignatures()); it.hasNext(); ) {
 			final PGPSignature pgpSignature = (PGPSignature) it.next();
-			if (isCertification(pgpSignature))
+			if (!pgpSignatures.containsKey(pgpSignature) && isCertification(pgpSignature)) {
+				pgpSignatures.put(pgpSignature, pgpSignature);
 				result.add(pgpSignature);
+			}
 		}
 
 		return result;
