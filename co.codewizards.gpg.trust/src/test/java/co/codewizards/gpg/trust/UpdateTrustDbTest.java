@@ -108,7 +108,6 @@ public class UpdateTrustDbTest extends AbstractTrustDbTest {
 		PgpKey idaKey = createPgpKey("ida");
 
 		PgpKey johnKey = createPgpKey("john");
-//		PgpKey karlKey = createPgpKey("karl", null);
 
 		bobKey = signPublicKey(aliceKey, POSITIVE_CERTIFICATION, bobKey); // bob <= alice
 		cathrinKey = signPublicKey(aliceKey, POSITIVE_CERTIFICATION, cathrinKey); // cathrin <= alice
@@ -260,6 +259,153 @@ public class UpdateTrustDbTest extends AbstractTrustDbTest {
 			assertThat(trustDb.getValidity(idaKey.getPublicKey())).isEqualTo(TRUST_MARGINAL);
 
 			assertThat(trustDb.getValidity(johnKey.getPublicKey())).isEqualTo(TRUST_FULLY);
+		}
+	}
+
+	@Test
+	public void threeIndirections() throws Exception {
+		PgpKey aliceKey = createPgpKey("alice");
+
+		PgpKey bobKey = createPgpKey("bob");
+		PgpKey cathrinKey = createPgpKey("cathrin");
+		PgpKey danielKey = createPgpKey("daniel");
+		PgpKey[] level1Keys = new PgpKey[] { bobKey, cathrinKey, danielKey };
+
+		PgpKey emilKey = createPgpKey("emil");
+		PgpKey frankKey = createPgpKey("frank");
+		PgpKey georgKey = createPgpKey("georg");
+		PgpKey[] level2Keys = new PgpKey[] { emilKey, frankKey, georgKey };
+
+		PgpKey hansKey = createPgpKey("hans");
+		PgpKey idaKey = createPgpKey("ida");
+		PgpKey johnKey = createPgpKey("john");
+		PgpKey[] level3Keys = new PgpKey[] { hansKey, idaKey, johnKey };
+
+		PgpKey karlKey = createPgpKey("john");
+
+		bobKey = signPublicKey(aliceKey, POSITIVE_CERTIFICATION, bobKey); // bob <= alice
+		cathrinKey = signPublicKey(aliceKey, POSITIVE_CERTIFICATION, cathrinKey); // cathrin <= alice
+		danielKey = signPublicKey(aliceKey, POSITIVE_CERTIFICATION, danielKey); // daniel <= alice
+
+
+		for (PgpKey signingKey : level1Keys) {
+			emilKey = signPublicKey(signingKey, POSITIVE_CERTIFICATION, emilKey); // emil <= bob+cathrin+daniel <= alice
+			frankKey = signPublicKey(signingKey, POSITIVE_CERTIFICATION, frankKey); // frank <= bob+cathrin+daniel <= alice
+			georgKey = signPublicKey(signingKey, POSITIVE_CERTIFICATION, georgKey); // georg <= bob+cathrin+daniel <= alice
+		}
+
+
+		for (PgpKey signedKey : level3Keys) {
+			signPublicKey(emilKey, POSITIVE_CERTIFICATION, signedKey);
+			signPublicKey(frankKey, POSITIVE_CERTIFICATION, signedKey);
+		}
+
+		signPublicKey(georgKey, POSITIVE_CERTIFICATION, hansKey);
+		signPublicKey(georgKey, POSITIVE_CERTIFICATION, idaKey);
+
+		for (PgpKey signingKey : level3Keys)
+			signPublicKey(signingKey, POSITIVE_CERTIFICATION, karlKey);
+
+		try (TrustDb trustDb = new TrustDb(trustdbFile, pgpKeyRegistry);) {
+			trustDb.setOwnerTrust(aliceKey.getPublicKey(), TRUST_ULTIMATE);
+
+			for (PgpKey key : level1Keys)
+				trustDb.setOwnerTrust(key.getPublicKey(), TRUST_MARGINAL);
+
+			for (PgpKey key : level2Keys)
+				trustDb.setOwnerTrust(key.getPublicKey(), TRUST_MARGINAL);
+
+			for (PgpKey key : level3Keys)
+				trustDb.setOwnerTrust(key.getPublicKey(), TRUST_MARGINAL);
+		}
+
+
+		if (! SKIP_GPG_CHECK_TRUST_DB) {
+			runGpgCheckTrustDb();
+
+			try (TrustDb trustDb = new TrustDb(trustdbFile, pgpKeyRegistry);) {
+				assertThat(trustDb.getValidity(aliceKey.getPublicKey())).isEqualTo(TRUST_ULTIMATE);
+
+				assertThat(trustDb.getValidity(bobKey.getPublicKey())).isEqualTo(TRUST_FULLY);
+				assertThat(trustDb.getValidity(cathrinKey.getPublicKey())).isEqualTo(TRUST_FULLY);
+				assertThat(trustDb.getValidity(danielKey.getPublicKey())).isEqualTo(TRUST_FULLY);
+
+				assertThat(trustDb.getValidity(emilKey.getPublicKey())).isEqualTo(TRUST_FULLY);
+				assertThat(trustDb.getValidity(frankKey.getPublicKey())).isEqualTo(TRUST_FULLY);
+				assertThat(trustDb.getValidity(georgKey.getPublicKey())).isEqualTo(TRUST_FULLY);
+
+				assertThat(trustDb.getValidity(hansKey.getPublicKey())).isEqualTo(TRUST_FULLY);
+				assertThat(trustDb.getValidity(idaKey.getPublicKey())).isEqualTo(TRUST_FULLY);
+				assertThat(trustDb.getValidity(johnKey.getPublicKey())).isEqualTo(TRUST_MARGINAL);
+
+				assertThat(trustDb.getValidity(karlKey.getPublicKey())).isEqualTo(TRUST_MARGINAL);
+			}
+		}
+
+		try (TrustDb trustDb = new TrustDb(trustdbFile, pgpKeyRegistry);) {
+			trustDb.updateTrustDb();
+
+			assertThat(trustDb.getValidity(aliceKey.getPublicKey())).isEqualTo(TRUST_ULTIMATE);
+
+			assertThat(trustDb.getValidity(bobKey.getPublicKey())).isEqualTo(TRUST_FULLY);
+			assertThat(trustDb.getValidity(cathrinKey.getPublicKey())).isEqualTo(TRUST_FULLY);
+			assertThat(trustDb.getValidity(danielKey.getPublicKey())).isEqualTo(TRUST_FULLY);
+
+			assertThat(trustDb.getValidity(emilKey.getPublicKey())).isEqualTo(TRUST_FULLY);
+			assertThat(trustDb.getValidity(frankKey.getPublicKey())).isEqualTo(TRUST_FULLY);
+			assertThat(trustDb.getValidity(georgKey.getPublicKey())).isEqualTo(TRUST_FULLY);
+
+			assertThat(trustDb.getValidity(hansKey.getPublicKey())).isEqualTo(TRUST_FULLY);
+			assertThat(trustDb.getValidity(idaKey.getPublicKey())).isEqualTo(TRUST_FULLY);
+			assertThat(trustDb.getValidity(johnKey.getPublicKey())).isEqualTo(TRUST_MARGINAL);
+
+			assertThat(trustDb.getValidity(karlKey.getPublicKey())).isEqualTo(TRUST_MARGINAL);
+		}
+
+
+		signPublicKey(georgKey, POSITIVE_CERTIFICATION, johnKey);
+
+
+		if (! SKIP_GPG_CHECK_TRUST_DB) {
+			runGpgCheckTrustDb();
+
+			try (TrustDb trustDb = new TrustDb(trustdbFile, pgpKeyRegistry);) {
+				assertThat(trustDb.getValidity(aliceKey.getPublicKey())).isEqualTo(TRUST_ULTIMATE);
+
+				assertThat(trustDb.getValidity(bobKey.getPublicKey())).isEqualTo(TRUST_FULLY);
+				assertThat(trustDb.getValidity(cathrinKey.getPublicKey())).isEqualTo(TRUST_FULLY);
+				assertThat(trustDb.getValidity(danielKey.getPublicKey())).isEqualTo(TRUST_FULLY);
+
+				assertThat(trustDb.getValidity(emilKey.getPublicKey())).isEqualTo(TRUST_FULLY);
+				assertThat(trustDb.getValidity(frankKey.getPublicKey())).isEqualTo(TRUST_FULLY);
+				assertThat(trustDb.getValidity(georgKey.getPublicKey())).isEqualTo(TRUST_FULLY);
+
+				assertThat(trustDb.getValidity(hansKey.getPublicKey())).isEqualTo(TRUST_FULLY);
+				assertThat(trustDb.getValidity(idaKey.getPublicKey())).isEqualTo(TRUST_FULLY);
+				assertThat(trustDb.getValidity(johnKey.getPublicKey())).isEqualTo(TRUST_FULLY);
+
+				assertThat(trustDb.getValidity(karlKey.getPublicKey())).isEqualTo(TRUST_FULLY);
+			}
+		}
+
+		try (TrustDb trustDb = new TrustDb(trustdbFile, pgpKeyRegistry);) {
+			trustDb.updateTrustDb();
+
+			assertThat(trustDb.getValidity(aliceKey.getPublicKey())).isEqualTo(TRUST_ULTIMATE);
+
+			assertThat(trustDb.getValidity(bobKey.getPublicKey())).isEqualTo(TRUST_FULLY);
+			assertThat(trustDb.getValidity(cathrinKey.getPublicKey())).isEqualTo(TRUST_FULLY);
+			assertThat(trustDb.getValidity(danielKey.getPublicKey())).isEqualTo(TRUST_FULLY);
+
+			assertThat(trustDb.getValidity(emilKey.getPublicKey())).isEqualTo(TRUST_FULLY);
+			assertThat(trustDb.getValidity(frankKey.getPublicKey())).isEqualTo(TRUST_FULLY);
+			assertThat(trustDb.getValidity(georgKey.getPublicKey())).isEqualTo(TRUST_FULLY);
+
+			assertThat(trustDb.getValidity(hansKey.getPublicKey())).isEqualTo(TRUST_FULLY);
+			assertThat(trustDb.getValidity(idaKey.getPublicKey())).isEqualTo(TRUST_FULLY);
+			assertThat(trustDb.getValidity(johnKey.getPublicKey())).isEqualTo(TRUST_FULLY);
+
+			assertThat(trustDb.getValidity(karlKey.getPublicKey())).isEqualTo(TRUST_FULLY);
 		}
 	}
 }

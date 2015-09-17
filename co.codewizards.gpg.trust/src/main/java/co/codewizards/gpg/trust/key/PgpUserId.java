@@ -8,7 +8,7 @@ public class PgpUserId {
 	private final PgpKey pgpKey;
 	private final String userId;
 	private final PGPUserAttributeSubpacketVector userAttribute;
-	private UserIdNameHash nameHash;
+	private PgpUserIdNameHash nameHash;
 
 	public PgpUserId(final PgpKey pgpKey, final String userId) {
 		this.pgpKey = assertNotNull("pgpKey", pgpKey);
@@ -35,13 +35,19 @@ public class PgpUserId {
 	}
 
 	// namehash_from_uid (PKT_user_id *uid) from keyid.c
-	public UserIdNameHash getNameHash() {
+	public PgpUserIdNameHash getNameHash() {
 		if (nameHash == null) {
 			if (userId != null)
-				nameHash = UserIdNameHash.createFromUserId(userId);
+				nameHash = PgpUserIdNameHash.createFromUserId(userId);
 			else
-				nameHash = UserIdNameHash.createFromUserAttribute(userAttribute);
+				nameHash = PgpUserIdNameHash.createFromUserAttribute(userAttribute);
 		}
 		return nameHash;
+	}
+
+	@Override
+	public String toString() {
+		return String.format("%s[pgpKeyId=%s userId=%s userAttribute=%s]",
+				this.getClass().getSimpleName(), getPgpKey().getPgpKeyId(), userId, userAttribute);
 	}
 }

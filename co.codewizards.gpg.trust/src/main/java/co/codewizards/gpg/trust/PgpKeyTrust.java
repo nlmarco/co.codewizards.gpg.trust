@@ -10,12 +10,12 @@ import java.util.Map;
 import co.codewizards.gpg.trust.key.PgpKey;
 import co.codewizards.gpg.trust.key.PgpKeyFingerprint;
 import co.codewizards.gpg.trust.key.PgpUserId;
-import co.codewizards.gpg.trust.key.UserIdNameHash;
+import co.codewizards.gpg.trust.key.PgpUserIdNameHash;
 
 public class PgpKeyTrust {
 
 	private final PgpKey pgpKey;
-	private final Map<UserIdNameHash, PgpUserIdTrust> nameHash2UserIdTrust = new HashMap<>();
+	private final Map<PgpUserIdNameHash, PgpUserIdTrust> nameHash2UserIdTrust = new HashMap<>();
 
 	public PgpKeyTrust(final PgpKey pgpKey) {
 		this.pgpKey = assertNotNull("pgpKey", pgpKey);

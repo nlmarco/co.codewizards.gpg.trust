@@ -274,6 +274,8 @@ public class TrustDbIo implements AutoCloseable, TrustConst {
 
 			if (matcher.matches(record))
 				return record;
+			else
+				return null;
 		}
 	}
 

@@ -13,7 +13,7 @@ import org.bouncycastle.bcpg.UserAttributeSubpacketTags;
 import org.bouncycastle.crypto.digests.RIPEMD160Digest;
 import org.bouncycastle.openpgp.PGPUserAttributeSubpacketVector;
 
-public class UserIdNameHash implements Comparable<UserIdNameHash>, Serializable {
+public class PgpUserIdNameHash implements Comparable<PgpUserIdNameHash>, Serializable {
 	private static final long serialVersionUID = 1L;
 
 	private final byte[] namehash;
@@ -21,12 +21,12 @@ public class UserIdNameHash implements Comparable<UserIdNameHash>, Serializable 
 	private transient WeakReference<String> toString;
 	private transient WeakReference<String> toHumanString;
 
-	protected UserIdNameHash(final byte[] namehash) {
+	protected PgpUserIdNameHash(final byte[] namehash) {
 		assertNotNull("namehash", namehash);
 		this.namehash = namehash;
 	}
 
-	public UserIdNameHash(final String namehash) {
+	public PgpUserIdNameHash(final String namehash) {
 		assertNotNull("namehash", namehash);
 		this.namehash = decodeHexStr(namehash);
 	}
@@ -61,12 +61,12 @@ public class UserIdNameHash implements Comparable<UserIdNameHash>, Serializable 
 
 		if (getClass() != obj.getClass()) return false;
 
-		final UserIdNameHash other = (UserIdNameHash) obj;
+		final PgpUserIdNameHash other = (PgpUserIdNameHash) obj;
 		return Arrays.equals(namehash, other.namehash);
 	}
 
 	@Override
-	public int compareTo(UserIdNameHash o) {
+	public int compareTo(PgpUserIdNameHash o) {
 		int res = Integer.compare(this.namehash.length, o.namehash.length);
 		if (res != 0)
 			return res;
@@ -111,7 +111,7 @@ public class UserIdNameHash implements Comparable<UserIdNameHash>, Serializable 
 		return sb.toString();
 	}
 
-	public static UserIdNameHash createFromUserId(final String userId) {
+	public static PgpUserIdNameHash createFromUserId(final String userId) {
 		assertNotNull("userId", userId);
 
 		final RIPEMD160Digest digest = new RIPEMD160Digest();
@@ -120,10 +120,10 @@ public class UserIdNameHash implements Comparable<UserIdNameHash>, Serializable 
 		final byte[] out = new byte[digest.getDigestSize()];
 		digest.doFinal(out, 0);
 
-		return new UserIdNameHash(out);
+		return new PgpUserIdNameHash(out);
 	}
 
-	public static UserIdNameHash createFromUserAttribute(final PGPUserAttributeSubpacketVector userAttribute) {
+	public static PgpUserIdNameHash createFromUserAttribute(final PGPUserAttributeSubpacketVector userAttribute) {
 		assertNotNull("userAttribute", userAttribute);
 
 		final RIPEMD160Digest digest = new RIPEMD160Digest();
@@ -137,6 +137,6 @@ public class UserIdNameHash implements Comparable<UserIdNameHash>, Serializable 
 
 		final byte[] out = new byte[digest.getDigestSize()];
 		digest.doFinal(out, 0);
-		return new UserIdNameHash(out);
+		return new PgpUserIdNameHash(out);
 	}
 }

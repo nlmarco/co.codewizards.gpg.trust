@@ -88,8 +88,7 @@ public abstract class AbstractTrustDbTest {
 		File tempFile = File.createTempFile("abc-", ".tmp");
 		tempDir = tempFile.getParentFile().getAbsoluteFile();
 		tempFile.delete();
-		gnupgHomeDir = new File(tempDir, "gnupg_" + Long.toHexString(System.currentTimeMillis()) + '_' + Integer.toHexString(Math.abs(secureRandom.nextInt())));
-		gnupgHomeDir.mkdir();
+		initGnupgHomeDir();
 
 		pubringFile = new File(gnupgHomeDir, "pubring.gpg");
 		secringFile = new File(gnupgHomeDir, "secring.gpg");
@@ -101,13 +100,21 @@ public abstract class AbstractTrustDbTest {
 	@After
 	public void after() throws Exception {
 		if (gnupgHomeDir != null) {
-			if (SKIP_CLEANUP)
-				logger.warn("SKIP_CLEANUP is true => *NOT* deleting directory: {}", gnupgHomeDir);
-			else
-				deleteRecursively(gnupgHomeDir);
-
+			deleteGnupgHomeDir();
 			gnupgHomeDir = null;
 		}
+	}
+
+	protected void initGnupgHomeDir() {
+		gnupgHomeDir = new File(tempDir, "gnupg_" + Long.toHexString(System.currentTimeMillis()) + '_' + Integer.toHexString(Math.abs(secureRandom.nextInt())));
+		gnupgHomeDir.mkdir();
+	}
+
+	protected void deleteGnupgHomeDir() {
+		if (SKIP_CLEANUP)
+			logger.warn("SKIP_CLEANUP is true => *NOT* deleting directory: {}", gnupgHomeDir);
+		else
+			deleteRecursively(gnupgHomeDir);
 	}
 
 	protected void runGpgCheckTrustDb() throws IOException, InterruptedException {
@@ -195,6 +202,8 @@ public abstract class AbstractTrustDbTest {
 	public PgpKey signPublicKey(PgpKey signingKey, int certificationType, PgpKey signedKey) throws IOException, PGPException {
 		assertNotNull("signingKey", signingKey);
 		assertNotNull("signedKey", signedKey);
+
+		signedKey = pgpKeyRegistry.getPgpKey(signedKey.getPgpKeyId()); // maybe the given signedKey is stale!
 
 		// null causes an exception - empty is possible, though
 		final char[] passphrase = new char[0];

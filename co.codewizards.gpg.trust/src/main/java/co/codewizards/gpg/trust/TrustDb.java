@@ -16,6 +16,7 @@ import java.util.Set;
 
 import org.bouncycastle.openpgp.PGPPublicKey;
 import org.bouncycastle.openpgp.PGPSignature;
+import org.bouncycastle.openpgp.PGPSignatureSubpacketVector;
 import org.bouncycastle.openpgp.PGPUserAttributeSubpacketVector;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -25,7 +26,7 @@ import co.codewizards.gpg.trust.key.PgpKeyFingerprint;
 import co.codewizards.gpg.trust.key.PgpKeyId;
 import co.codewizards.gpg.trust.key.PgpKeyRegistry;
 import co.codewizards.gpg.trust.key.PgpUserId;
-import co.codewizards.gpg.trust.key.UserIdNameHash;
+import co.codewizards.gpg.trust.key.PgpUserIdNameHash;
 
 public class TrustDb implements AutoCloseable, TrustConst {
 	private static final Logger logger = LoggerFactory.getLogger(TrustDb.class);
@@ -149,18 +150,18 @@ public class TrustDb implements AutoCloseable, TrustConst {
 	}
 
 	public synchronized int getValidity(final PGPPublicKey publicKey) {
-		return getValidity(publicKey, (UserIdNameHash) null);
+		return getValidity(publicKey, (PgpUserIdNameHash) null);
 	}
 
 	public synchronized int getValidity(final PGPPublicKey publicKey, final String userId) {
-		return getValidity(publicKey, userId == null ? null : UserIdNameHash.createFromUserId(userId));
+		return getValidity(publicKey, userId == null ? null : PgpUserIdNameHash.createFromUserId(userId));
 	}
 
 	public synchronized int getValidity(PGPPublicKey publicKey, PGPUserAttributeSubpacketVector userAttribute) {
-		return getValidity(publicKey, userAttribute == null ? null : UserIdNameHash.createFromUserAttribute(userAttribute));
+		return getValidity(publicKey, userAttribute == null ? null : PgpUserIdNameHash.createFromUserAttribute(userAttribute));
 	}
 
-	protected synchronized int getValidity(final PGPPublicKey publicKey, final UserIdNameHash userIdNameHash) {
+	protected synchronized int getValidity(final PGPPublicKey publicKey, final PgpUserIdNameHash pgpUserIdNameHash) {
 		assertNotNull("publicKey", publicKey);
 
 		TrustRecord.Trust trust = getTrustByPublicKey(publicKey);
@@ -174,11 +175,11 @@ public class TrustDb implements AutoCloseable, TrustConst {
 			TrustRecord.Valid valid = trustDbIo.getTrustRecord(recordNum, TrustRecord.Valid.class);
 			assertNotNull("valid", valid);
 
-			if (userIdNameHash != null) {
+			if (pgpUserIdNameHash != null) {
 				// If a user ID is given we return the validity for that
 				// user ID ONLY.  If the namehash is not found, then there
 				// is no validity at all (i.e. the user ID wasn't signed).
-				if (userIdNameHash.equals(valid.getNameHash())) {
+				if (pgpUserIdNameHash.equals(valid.getNameHash())) {
 					validity = valid.getValidity();
 					break;
 				}
@@ -192,6 +193,9 @@ public class TrustDb implements AutoCloseable, TrustConst {
 
 		if ( (trust.getOwnerTrust() & TRUST_FLAG_DISABLED) != 0 )
 			validity |= TRUST_FLAG_DISABLED;
+
+		if (publicKey.isRevoked())
+			validity |= TRUST_FLAG_REVOKED;
 
 		if (isTrustDbStale())
 			validity |= TRUST_FLAG_PENDING_CHECK;
@@ -688,16 +692,43 @@ public class TrustDb implements AutoCloseable, TrustConst {
 //	}
 
 
-	private boolean isExpired(PGPPublicKey publicKey) {
-		long validSeconds = publicKey.getValidSeconds();
-		if (validSeconds == 0)
-			return false; // never expires
+	public boolean isExpired(PGPPublicKey publicKey) {
+		assertNotNull("publicKey", publicKey);
 
-		Date creationTime = publicKey.getCreationTime();
-		long validUntilTimestamp = creationTime.getTime() + (validSeconds * 1000);
-		return validUntilTimestamp < System.currentTimeMillis();
+		final Date creationTime = publicKey.getCreationTime();
+
+		final long validSeconds = publicKey.getValidSeconds();
+		if (validSeconds != 0) {
+			long validUntilTimestamp = creationTime.getTime() + (validSeconds * 1000);
+			return validUntilTimestamp < System.currentTimeMillis();
+		}
+		return false;
+
+		// TODO there seem to be keys (very old keys) that seem to encode the validity differently.
+		// For example, the real key 86A331B667F0D02F is expired according to my gpg, but it
+		// is not expired according to this code :-( I experimented with checking the userIds, but to no avail.
+		// It's a very small number of keys only, hence I ignore it now ;-)
 	}
 
+	public boolean isDisabled(PGPPublicKey publicKey) {
+		assertNotNull("publicKey", publicKey);
+		TrustRecord.Trust trust = trustDbIo.getTrustByFingerprint(publicKey.getFingerprint());
+		if (trust == null)
+			return false;
+
+		return (trust.getOwnerTrust() & TRUST_FLAG_DISABLED) != 0;
+	}
+
+	public void setDisabled(PGPPublicKey publicKey) {
+		assertNotNull("publicKey", publicKey);
+		TrustRecord.Trust trust = trustDbIo.getTrustByFingerprint(publicKey.getFingerprint());
+		if (trust == null) {
+			trust = new TrustRecord.Trust();
+			trust.setFingerprint(publicKey.getFingerprint());
+		}
+		trustDbIo.putTrustRecord(trust);
+		trustDbIo.flush();
+	}
 
 //	/**
 //	 * Run the key validation procedure.
@@ -1079,11 +1110,17 @@ public class TrustDb implements AutoCloseable, TrustConst {
 					if (expireDate >= startTime && expireDate < nextExpire)
 						nextExpire = expireDate;
 				}
+
+				logger.debug("updateTrustDb: depth={} keys={}",
+						depth, validatedKeys.size());
 			}
 
-			trustDbIo.updateVersionRecord(new Date(nextExpire * 1000));
+			final Date nextExpireDate = new Date(nextExpire * 1000);
+			trustDbIo.updateVersionRecord(nextExpireDate);
 
 			trustDbIo.flush();
+
+			logger.info("updateTrustDb: Next trust-db expiration date: {}", getDateFormatIso8601WithTime().format(nextExpireDate));
 		} finally {
 			fingerprint2PgpKeyTrust = null;
 			klist = null;
@@ -1127,6 +1164,10 @@ public class TrustDb implements AutoCloseable, TrustConst {
 		final Config config = Config.getInstance();
 		final PgpKeyTrust pgpKeyTrust = getPgpKeyTrust(pgpKey);
 
+		final boolean expired = isExpired(pgpKey.getPublicKey());
+//		final boolean disabled = isDisabled(pgpKey.getPublicKey());
+		final boolean revoked = pgpKey.getPublicKey().isRevoked();
+
 		for (final PgpUserId pgpUserId : pgpKey.getPgpUserIds()) {
 			final PgpUserIdTrust pgpUserIdTrust = pgpKeyTrust.getPgpUserIdTrust(pgpUserId);
 
@@ -1135,7 +1176,16 @@ public class TrustDb implements AutoCloseable, TrustConst {
 			pgpUserIdTrust.setFullCount(0);
 			pgpUserIdTrust.setMarginalCount(0);
 
-			for (PGPSignature certification : pgpKeyRegistry.getCertifications(pgpUserId)) {
+			if (expired)
+				continue;
+
+//			if (disabled)
+//				continue;
+
+			if (revoked)
+				continue;
+
+			for (PGPSignature certification : pgpKeyRegistry.getSignatures(pgpUserId)) {
 				// It seems, the PGP trust model does not care about the certification level :-(
 				// Any of the 3 DEFAULT, CASUAL, POSITIVE is as fine as the other -
 				// there is no difference (at least according to my tests).
@@ -1143,6 +1193,13 @@ public class TrustDb implements AutoCloseable, TrustConst {
 						&& certification.getSignatureType() != PGPSignature.CASUAL_CERTIFICATION
 						&& certification.getSignatureType() != PGPSignature.POSITIVE_CERTIFICATION)
 					continue;
+
+				PGPSignatureSubpacketVector hashedSubPackets = certification.getHashedSubPackets();
+				if (hashedSubPackets != null) {
+					if (hashedSubPackets.getKeyExpirationTime() != 0) {
+
+					}
+				}
 
 				final PgpKey signingKey = pgpKeyRegistry.getPgpKey(new PgpKeyId(certification.getKeyID()));
 				if (signingKey == null)
@@ -1155,7 +1212,7 @@ public class TrustDb implements AutoCloseable, TrustConst {
 					continue;
 				}
 
-				int signingValidity = getValidity(signingKey.getPublicKey());
+				int signingValidity = getValidity(signingKey.getPublicKey()) & TRUST_MASK;
 				if (signingValidity <= TRUST_MARGINAL) {
 					// If the signingKey is trusted only marginally or less, we ignore the certification completely.
 					// Only fully trusted keys are taken into account for transitive trust.

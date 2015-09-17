@@ -242,6 +242,9 @@ public abstract class TrustRecord implements TrustConst {
 		protected long validList;
 		protected short minOwnerTrust;
 
+		public Trust() {
+		}
+
 		@Override
 		public TrustRecordType getType() {
 			return TrustRecordType.TRUST;

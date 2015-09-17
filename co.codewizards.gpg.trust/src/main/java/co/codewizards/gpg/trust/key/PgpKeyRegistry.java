@@ -309,7 +309,7 @@ public class PgpKeyRegistry {
 	}
 
 	@SuppressWarnings("unchecked")
-	public synchronized List<PGPSignature> getCertifications(final PgpUserId pgpUserId) {
+	public synchronized List<PGPSignature> getSignatures(final PgpUserId pgpUserId) {
 		assertNotNull("pgpUserId", pgpUserId);
 		final PGPPublicKey publicKey = pgpUserId.getPgpKey().getPublicKey();
 
@@ -337,16 +337,16 @@ public class PgpKeyRegistry {
 		else
 			throw new IllegalStateException("WTF?!");
 
-		// It seems, there are both: certifications for individual user-ids and certifications for the
-		// entire key. I therefore first take the individual ones (above) into account then and then
-		// the ones for the entire key (below).
-		for (Iterator<?> it = nullToEmpty(publicKey.getSignatures()); it.hasNext(); ) {
-			final PGPSignature pgpSignature = (PGPSignature) it.next();
-			if (!pgpSignatures.containsKey(pgpSignature) && isCertification(pgpSignature)) {
-				pgpSignatures.put(pgpSignature, pgpSignature);
-				result.add(pgpSignature);
-			}
-		}
+//		// It seems, there are both: certifications for individual user-ids and certifications for the
+//		// entire key. I therefore first take the individual ones (above) into account then and then
+//		// the ones for the entire key (below).
+//		for (Iterator<?> it = nullToEmpty(publicKey.getSignatures()); it.hasNext(); ) {
+//			final PGPSignature pgpSignature = (PGPSignature) it.next();
+//			if (!pgpSignatures.containsKey(pgpSignature) && isCertification(pgpSignature)) {
+//				pgpSignatures.put(pgpSignature, pgpSignature);
+//				result.add(pgpSignature);
+//			}
+//		}
 
 		return result;
 	}
